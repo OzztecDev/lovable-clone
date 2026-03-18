@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  password          String?
+  name              String?
+  image             String?
+  plan              String    @default("FREE")
+  
+  oauthProvider     String?
+  oauthProviderId   String?
+  
+  subscription      Subscription?
+  
+  accounts          Account[]
+  sessions          Session[]
+  prompts           Prompt[]
+  projects          Project[]
+  payments          Payment[]
+  usageLogs         UsageLog[]
+  
+  dailyRequestCount Int       @default(0)
+  dailyRequestDate  DateTime  @default(now())
+  monthlyTokenCount Int       @default(0)
+  monthlyTokenDate  DateTime  @default(now())
+  
+  failedLoginAttempts Int     @default(0)
+  lockedUntil         DateTime?
+  resetToken          String?
+  resetTokenExpiry    DateTime?
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([email])
+  @@index([plan])
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Subscription {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  plan                  String
+  status                String    @default("PENDING")
+  
+  iyzicoSubscriptionId  String?
+  iyzicoPricingPlanId   String?
+  
+  startDate             DateTime  @default(now())
+  endDate               DateTime?
+  cancelledAt           DateTime?
+  
+  billingCycle          String?   @default("monthly")
+  autoRenew             Boolean   @default(true)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Payment {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount            Float
+  currency          String    @default("USD")
+  status            String    @default("PENDING")
+  
+  paymentId         String?
+  conversationId    String?
+  iyzicoResponse    String?
+  
+  plan              String
+  
+  description       String?
+  metadata          String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Prompt {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  content     String
+  response    String?
+  model       String
+  
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  totalTokens  Int      @default(0)
+  
+  status      String    @default("completed")
+  error       String?
+  
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  
+  files       String    @default("[]")
+  
+  framework   String?
+  styling     String?
+  
+  status      String    @default("DRAFT")
+  
+  prompts     Prompt[]
+  
+  tags        String    @default("[]")
+  metadata    String?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model UsageLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  action    String
+  model     String
+  
+  inputTokens  Int  @default(0)
+  outputTokens Int  @default(0)
+  totalTokens  Int  @default(0)
+  
+  cost        Float @default(0)
+  currency    String @default("USD")
+  
+  ipAddress   String?
+  userAgent   String?
+  
+  metadata    String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  key       String   @unique
+  
+  permissions String @default("[]")
+  
+  requestCount Int     @default(0)
+  lastUsedAt   DateTime?
+  
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
